@@ -48,7 +48,5 @@ backend/
 ├── .env                       
 ├── Dockerfile                 
 └── README.md
-
-
 ```
 
