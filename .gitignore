@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+
+# Mac OS
+.DS_Store
+
+# 모델 가중치 파일 용량이 너무 올라가지 못함..
+app/assets/*.pth
