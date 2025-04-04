@@ -15,7 +15,13 @@ async def predict_file(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
 
     try:
-        result = predict(save_path, ext)
-        return {"filename": file.filename, "extension": ext, "result": result}
+        prediction_result = predict(save_path, ext)
+        return {
+            "filename": file.filename,
+            "extension": ext,
+            "result": prediction_result["result"],
+            "confidence": prediction_result["confidence"]
+        }
     except Exception as e:
         return {"error": str(e)}
+

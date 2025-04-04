@@ -31,14 +31,9 @@ def predict(file_path: str, file_ext: str):
     model = load_model_by_extension(file_ext)
 
     try:
-        # 확장자별 전처리 함수 및 크기 선택
         if ext in CONVERTER_MAP:
             convert_func, resize_shape = CONVERTER_MAP[ext]
-
-            if convert_func:
-                image = convert_func(file_path)
-            else:
-                image = Image.open(file_path).convert("L")
+            image = convert_func(file_path) if convert_func else Image.open(file_path).convert("L")
         else:
             raise ValueError(f"{ext} 확장자는 아직 지원되지 않습니다.")
 
@@ -46,21 +41,26 @@ def predict(file_path: str, file_ext: str):
             transforms.Resize(resize_shape),
             transforms.ToTensor()
         ])
-
         input_tensor = transform(image).unsqueeze(0)
 
         with torch.no_grad():
             output = model(input_tensor)
-            prediction = torch.argmax(output, 1).item()
-            result = "악성" if prediction == 1 else "정상"
+            probabilities = torch.nn.functional.softmax(output, dim=1)
+            confidence, prediction = torch.max(probabilities, 1)
+            result = "악성" if prediction.item() == 1 else "정상"
 
     except Exception as e:
         result = f"에러 발생: {str(e)}"
+        confidence = 0.0
 
     finally:
         try:
             os.remove(file_path)
         except Exception as del_err:
-            print(f" 파일 삭제 실패: {del_err}")
+            print(f"파일 삭제 실패: {del_err}")
 
-    return result
+    return {
+        "result": result,
+        "confidence": round(confidence.item(), 4)
+    }
+
