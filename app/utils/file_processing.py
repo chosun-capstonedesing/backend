@@ -26,8 +26,8 @@ def convert_hwp_to_image(file_path):
 
 # 확장자별로 (변환 함수, resize 크기) 관리
 CONVERTER_MAP = {
-    ".exe": (convert_exe_to_image, (256, 256)),
-    ".pdf": (convert_pdf_to_image, (224, 224)),
-    ".hwp": (convert_hwp_to_image, (224, 224)),
+    "exe": (convert_exe_to_image, (256, 256)),
+    "pdf": (convert_pdf_to_image, (224, 224)),
+    "hwp": (convert_hwp_to_image, (224, 224)),
 }
 

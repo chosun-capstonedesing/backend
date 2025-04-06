@@ -9,6 +9,16 @@ from app.utils.file_processing import CONVERTER_MAP
 MODEL_CACHE = {}
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "../assets")
 
+# 각 확장자별 정확도 (Test Accuracy)
+ACCURACY_MAP = {
+    "exe": 95.61,
+    "pdf": 93.42,
+    "hwp": 92.73,
+    "docx": 94.15,
+    "xlsx": 91.89,
+}
+
+## 확장자 받기
 def load_model_by_extension(file_ext: str):
     ext = file_ext.strip(".").lower()
     if ext not in MODEL_CACHE:
@@ -25,10 +35,13 @@ def load_model_by_extension(file_ext: str):
         MODEL_CACHE[ext] = model
     return MODEL_CACHE[ext]
 
-
+## 파일 악성/정상 판별 + 모델의 정확도
 def predict(file_path: str, file_ext: str):
-    ext = file_ext.lower()
-    model = load_model_by_extension(file_ext)
+    ext = file_ext.lower().strip(".")
+
+    #model = load_model_by_extension(file_ext)
+    model = load_model_by_extension(ext)
+
 
     try:
         if ext in CONVERTER_MAP:
@@ -45,13 +58,14 @@ def predict(file_path: str, file_ext: str):
 
         with torch.no_grad():
             output = model(input_tensor)
-            probabilities = torch.nn.functional.softmax(output, dim=1)
-            confidence, prediction = torch.max(probabilities, 1)
-            result = "악성" if prediction.item() == 1 else "정상"
+            prediction = torch.argmax(output, 1).item()
+            result = "악성" if prediction == 1 else "정상"
+
+        accuracy = ACCURACY_MAP.get(ext, None)
 
     except Exception as e:
         result = f"에러 발생: {str(e)}"
-        confidence = 0.0
+        accuracy = None
 
     finally:
         try:
@@ -61,6 +75,47 @@ def predict(file_path: str, file_ext: str):
 
     return {
         "result": result,
-        "confidence": round(confidence.item(), 4)
+        "accuracy": accuracy
     }
 
+## Pie Chart : 파일 악성/정상 몇 % 비율인지
+def predict_probabilities(file_path: str, file_ext: str):
+    ext = file_ext.lower().strip(".")  # ".exe" → "exe"
+    model = load_model_by_extension(ext)
+
+    print(f"[DEBUG] ext: {ext}")
+    print(f"[DEBUG] converter_map: {CONVERTER_MAP}")
+
+    try:
+        if ext in CONVERTER_MAP:
+            convert_func, resize_shape = CONVERTER_MAP[ext]
+            image = convert_func(file_path) if convert_func else Image.open(file_path).convert("L")
+        else:
+            raise ValueError(f"{ext} 확장자는 아직 지원되지 않습니다.")
+
+        transform = transforms.Compose([
+            transforms.Resize(resize_shape),
+            transforms.ToTensor()
+        ])
+        input_tensor = transform(image).unsqueeze(0)
+
+        with torch.no_grad():
+            output = model(input_tensor)
+            probabilities = torch.nn.functional.softmax(output, dim=1)[0]
+            normal_score = round(probabilities[0].item() * 100, 2)
+            malicious_score = round(probabilities[1].item() * 100, 2)
+
+    except Exception as e:
+        normal_score, malicious_score = 0.0, 0.0
+        print(f"에러 발생: {str(e)}")
+
+    finally:
+        try:
+            os.remove(file_path)
+        except Exception as del_err:
+            print(f"파일 삭제 실패: {del_err}")
+
+    return {
+        "normal": normal_score,
+        "malicious": malicious_score
+    }
