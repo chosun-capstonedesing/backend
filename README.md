@@ -53,8 +53,8 @@ backend/
 ├── app/
 │   ├── api/
 │   │   └── endpoints/
-│   │       ├── files.py
-│   │       ├── reports.py
+│   │       ├── files.py    -> /predict API 정의
+│   │       ├── reports.py  -> /report/download API 정의
 │   │       └── users.py
 │   ├── assets/
 │   │   └── CNN_exe.pth
@@ -72,6 +72,7 @@ backend/
 │   │   └── users.py
 │   ├── services/
 │   │   └── prediction.py
+|   |   └── reports.py
 │   ├── utils/
 │   │   ├── file_processing.py
 │   │   └── image_converter.py

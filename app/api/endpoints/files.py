@@ -1,3 +1,4 @@
+## app/api/endpoints/files.py
 from fastapi import APIRouter, UploadFile, File
 import os
 import shutil
@@ -22,7 +23,8 @@ async def predict_file(file: UploadFile = File(...)):
             "filename": file.filename,
             "extension": ext,
             "result": prediction_result["result"],
-            "accuracy": prediction_result["accuracy"]
+            "accuracy": prediction_result["accuracy"],
+            "log": prediction_result["log"]
         }
     except Exception as e:
         return {"error": str(e)}
