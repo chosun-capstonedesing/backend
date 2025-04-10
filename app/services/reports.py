@@ -10,7 +10,7 @@ import os
 from matplotlib import rcParams
 from app.utils.model_info import get_model_performance_score
 from app.utils.model_info import extract_model_info 
-
+from matplotlib.transforms import blended_transform_factory
 
 rcParams['font.family'] = 'AppleGothic'
 
@@ -69,43 +69,61 @@ def create_combined_model_performance_chart(perf):
     plt.close()
     return chart_path
 
-# ✅ 추가: 간트 차트 스타일 로그 타임라인 시각화 함수
+# 간트 차트 스타일 로그 타임라인 시각화 함수
 def create_log_gantt_chart(model_load, preprocess, inference):
     try:
-        import matplotlib.pyplot as plt
-
         total = model_load + preprocess + inference
         segments = [model_load, preprocess, inference]
         labels = ['모델 로딩', '전처리', '추론']
         colors = ['#93C5FD', '#FDE68A', '#FCA5A5']
 
-        fig, ax = plt.subplots(figsize=(6.5, 1))
+        fig, ax = plt.subplots(figsize=(6.5, 1.5))
         start = 0
-        prev_start = -1
+        starts = []  # 각 시작 위치 저장
+
         for i in range(len(segments)):
-            duration = segments[i]
-            duration = max(duration, 0.02)
+            duration = max(segments[i], 0.02)
             ax.broken_barh([(start, duration)], (0, 12), facecolors=colors[i])
             ax.text(start, -1.5, f"{start:.2f}s", ha='center', fontsize=7, color='gray')
-
-            # ✅ 겹치면 화살표 + 텍스트
-            if abs(start - prev_start) < 1e-2:
-                ax.annotate(f"{labels[i]} ({duration:.2f}s)",
-                            xy=(start + duration / 2, 12),
-                            xytext=(start + duration / 2, 18),
-                            arrowprops=dict(arrowstyle="->", lw=1.2, color='black'),
-                            ha='center', fontsize=9, color='black')
-            else:
-                label_y = 9 if i % 2 == 0 else 11
-                ax.text(start + duration / 2, label_y, labels[i], ha='center', va='center', fontsize=8)
-
-            prev_start = start
+            starts.append(start)
             start += duration
 
         ax.text(start, -1.5, f"{start:.2f}s", ha='center', fontsize=7, color='gray')
 
+        # 화살표 고정 높이 위치 수정
+        for i in range(len(segments)):
+            raw_duration = segments[i]               # 원래 시간 (예: 0.0x)
+            duration = max(raw_duration, 0.02)       # 막대용 보정 시간
+            start = starts[i]
+            center_x = start + duration / 2
+            label_text = f"{labels[i]} ({raw_duration:.2f}s)"  # 텍스트에는 원본 값 사용
+
+            # 높이를 고정: 위에서 아래로 순서대로
+            if labels[i] == "모델 로딩":
+                y_text = 27
+            elif labels[i] == "전처리":
+                y_text = 23
+            else:  # 추론
+                y_text = 17
+
+            # 화살표만 따로 그림
+            ax.annotate(
+                '',                             # ← 빈 문자열
+                xy=(center_x, 6),               # 화살표 끝점
+                xytext=(center_x, y_text - 1),  # 화살표 시작점 (텍스트 아래로)
+                arrowprops=dict(
+                    arrowstyle="->",
+                    lw=1.2,
+                    color='black'
+                )
+            )
+
+            # 텍스트는 그냥 따로 그리고, 정렬은 left로 고정
+            ax.text(center_x, y_text, label_text,
+                    ha='left', va='bottom', fontsize=8, color='black')
+
         ax.set_xlim(0, max(total + 0.2, 1.0))
-        ax.set_ylim(-2, 20)
+        ax.set_ylim(-2, 30)
         ax.set_yticks([])
         ax.set_xlabel("Time (sec)", fontsize=9)
         ax.spines['top'].set_visible(False)
@@ -117,9 +135,11 @@ def create_log_gantt_chart(model_load, preprocess, inference):
         plt.savefig(chart_path)
         plt.close()
         return chart_path
+
     except Exception as e:
         print(f"[Gantt Chart 생성 실패] {e}")
         return None
+
 
 
 
@@ -200,7 +220,7 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
     pdf.ln(12)
 
     pdf.set_font("Noto", "B", 14)
-    pdf.cell(0, 10, "1. 파일 분석 정보 (File analysis information)")
+    pdf.cell(0, 10, "1. 파일 분석 정보 (File Analysis Information)")
     pdf.ln(12)
     pdf.set_font("Noto", "", 12)
     pdf.set_x(15)
@@ -297,19 +317,23 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
         f"- 추론 시간: {log.get('inference', '-')}초"
     )
     pdf.ln(8)
+    gantt_chart_path = None
     try:
-        model_load = float(log.get('model_load', 0))
-        preprocess = float(log.get('preprocess', 0))
-        inference = float(log.get('inference', 0))
+        model_load = float(log.get('model_load') or 0.0)
+        preprocess = float(log.get('preprocess') or 0.0)
+        inference = float(log.get('inference') or 0.0)
 
         gantt_chart_path = create_log_gantt_chart(model_load, preprocess, inference)
 
         if gantt_chart_path and os.path.exists(gantt_chart_path):
             pdf.image(gantt_chart_path, x=pdf.l_margin + 10, w=pdf.w - 2 * (pdf.l_margin + 10))
             pdf.ln(10)
-            os.remove(gantt_chart_path)
     except Exception as e:
-        print(f"[PDF] 로그 시각화 실패: {e}")
+        print(f"[PDF] 로그 시각화 실패: 모델 로딩/전처리/추론 시각화 중 오류\n→ {e}")
+    finally:
+        if gantt_chart_path and os.path.exists(gantt_chart_path):
+            os.remove(gantt_chart_path)
+
 
 
 
@@ -325,10 +349,7 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
         "- 중요 데이터는 주기적으로 백업"
     )
     
-
-    output_dir = "/Users/yoonhyejun/Desktop/pdf_output"
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{file_name}_report.pdf")
+    output_path = f"{file_name}_report.pdf"
     pdf.output(output_path)
 
     if os.path.exists(chart_path):

@@ -46,7 +46,7 @@ def extract_model_info(extension: str):
         return {
             "type": "Unknown",
             "input": "(예: Grayscale, 256x256)",
-            "train_size": "(예: 20,000)"
+            "train_size": "(예: 30,000)"
         }
 
     model_path = os.path.join(os.path.dirname(__file__), info.get("path", ""))

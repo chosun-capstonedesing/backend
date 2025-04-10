@@ -26,18 +26,26 @@ ACCURACY_MAP = {
 def load_model_by_extension(file_ext: str):
     ext = file_ext.strip(".").lower()
     if ext not in MODEL_CACHE:
-        model_path = os.path.join(MODEL_DIR, f"CNN_{ext}.pth")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"모델 {model_path} 이 존재하지 않습니다.")
+        for suffix in [".pth", ".pkl"]:
+            for filename in os.listdir(MODEL_DIR):
+                if filename.endswith(suffix) and f"_{ext}" in filename:
+                    model_path = os.path.join(MODEL_DIR, filename)
+                    break
+            else:
+                continue
+            break
+        else:
+            raise FileNotFoundError(f"{ext} 확장자에 맞는 모델 파일을 찾을 수 없습니다.")
+
         checkpoint = torch.load(model_path, map_location="cpu")
-
-        num_classes = checkpoint.get('num_classes', 2)  # 혹시 없을 경우 대비해서 기본값 2
-        model = MyCNN(num_classes)
-
-        model.load_state_dict(checkpoint['model_state_dict'])
+        num_classes = checkpoint.get("num_classes", 2)
+        model = MyCNN(num_classes)  # 나중에 모델명 분기 가능하도록 확장
+        model.load_state_dict(checkpoint["model_state_dict"])
         model.eval()
         MODEL_CACHE[ext] = model
+
     return MODEL_CACHE[ext]
+
 
 ## 파일 악성/정상 판별 + 모델의 정확도 + 시간 측정
 def predict(file_path: str, file_ext: str):
