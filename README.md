@@ -25,9 +25,8 @@ FastAPI 기반의 비동기 REST API 서버로, 확장성과 유지보수성을 
 
 ## ✅ 향후 계획
 
-- PDF 보고서 자동 생성 및 다운로드 기능 연동  
+- PDF 보고서 내 GPT API 기능 연동 후 출력 목표
 - 로그인 및 인증 처리 기능 구현 (DB 연동 예정)  
-- 다양한 확장자 지원을 위한 모델 범용화 및 예외 처리 강화  
 
 ---
 
@@ -54,10 +53,16 @@ backend/
 │   ├── api/
 │   │   └── endpoints/
 │   │       ├── files.py    -> /predict API 정의
-│   │       ├── reports.py  -> /report/download API 정의
+|   |       ├── report_legacy.py  -> reports.py 의 백업용 및 개별 기능 테스트용
+│   │       ├── reports.py  -> /files/report/download API 정의
 │   │       └── users.py
 │   ├── assets/
-│   │   └── CNN_exe.pth
+│   │   ├── CNN_exe.pth
+│   │   ├── fonts/
+│   │   │   ├── NotoSansKR-Bold.ttf
+│   │   │   └── NotoSansKR-Regular.ttf
+│   │   └── images/
+│   │       └── report_logo.png
 │   ├── core/
 │   │   ├── config.py
 │   │   └── security.py
@@ -75,9 +80,12 @@ backend/
 |   |   └── reports.py
 │   ├── utils/
 │   │   ├── file_processing.py
-│   │   └── image_converter.py
+│   │   ├── image_converter.py
+│   │   ├── model_info.py
+│   │   └── performance_timer.py
 │   ├── __init__.py
 │   └── main.py
+├── temp_uploads/
 ├── tests/
 │   └── test_files.py
 ├── .gitignore
