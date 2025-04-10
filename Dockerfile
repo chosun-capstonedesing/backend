@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 8000
 
 # FastAPI 앱 실행 (main.py에 app 인스턴스 존재한다고 가정)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
