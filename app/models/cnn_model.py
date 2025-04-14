@@ -1,3 +1,4 @@
+## app/models/cnn_model.py
 import torch.nn as nn
 
 class SimpleCNN(nn.Module):

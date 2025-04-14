@@ -4,8 +4,12 @@ from torchvision import transforms
 from PIL import Image
 import os
 import time
+import joblib
+import pandas as pd
 from datetime import datetime
+
 from app.models.cnn_model import SimpleCNN as MyCNN
+from app.models.pdf_model import RandomForestPDFModel  # ✅ [추가] 랜덤포레스트 모델 불러오기
 from app.utils.file_processing import CONVERTER_MAP
 from app.utils.performance_timer import InferenceTimer
 
@@ -13,7 +17,7 @@ from app.utils.performance_timer import InferenceTimer
 MODEL_CACHE = {}
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "../assets")
 
-# 각 확장자별 정확도 (Test Accuracy)
+# ✅ [기존 유지] 정확도 맵 (하드코딩 값은 향후 동적 추출로 확장 가능)
 ACCURACY_MAP = {
     "exe": 95.61,
     "pdf": 93.42,
@@ -22,7 +26,7 @@ ACCURACY_MAP = {
     "xlsx": 91.89,
 }
 
-## 확장자 받기
+# ✅ CNN + RandomForest 모델 로딩 통합
 def load_model_by_extension(file_ext: str):
     ext = file_ext.strip(".").lower()
     if ext not in MODEL_CACHE:
@@ -37,56 +41,64 @@ def load_model_by_extension(file_ext: str):
         else:
             raise FileNotFoundError(f"{ext} 확장자에 맞는 모델 파일을 찾을 수 없습니다.")
 
-        checkpoint = torch.load(model_path, map_location="cpu")
-        num_classes = checkpoint.get("num_classes", 2)
-        model = MyCNN(num_classes)  # 나중에 모델명 분기 가능하도록 확장
-        model.load_state_dict(checkpoint["model_state_dict"])
-        model.eval()
+        if ext in MODEL_CACHE:
+            del MODEL_CACHE[ext]  # 캐싱된 모델 제거 (테스트 시 필수)
+
+        if model_path.endswith(".pth"):
+            checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)  # ✅ 여기를 고쳤는지 재확인
+            num_classes = checkpoint.get("num_classes", 2)
+            model = MyCNN(num_classes)
+            model.load_state_dict(checkpoint["model_state_dict"])
+            model.eval()
+        elif model_path.endswith(".pkl"):
+            model = RandomForestPDFModel(model_path)
+        else:
+            raise ValueError(f"지원하지 않는 모델 형식: {model_path}")
+
         MODEL_CACHE[ext] = model
 
     return MODEL_CACHE[ext]
 
 
-## 파일 악성/정상 판별 + 모델의 정확도 + 시간 측정
+# ✅ 악성/정상 판단 함수 (CNN or RF 공통 처리)
 def predict(file_path: str, file_ext: str):
     ext = file_ext.lower().strip(".")
     timer = InferenceTimer()
-
-    #model = load_model_by_extension(file_ext)
     model = load_model_by_extension(ext)
     timer.mark("model_load")
 
     try:
-        if ext in CONVERTER_MAP:
-            convert_func, resize_shape = CONVERTER_MAP[ext]
-            image = convert_func(file_path) if convert_func else Image.open(file_path).convert("L")
-        else:
+        if ext not in CONVERTER_MAP:
             raise ValueError(f"{ext} 확장자는 아직 지원되지 않습니다.")
+        convert_func, resize_shape = CONVERTER_MAP[ext]
+        data = convert_func(file_path)
         timer.mark("preprocess")
 
-        transform = transforms.Compose([
-            transforms.Resize(resize_shape),
-            transforms.ToTensor()
-        ])
-        input_tensor = transform(image).unsqueeze(0)
-
-        with torch.no_grad():
-            output = model(input_tensor)
-            prediction = torch.argmax(output, 1).item()
-        timer.mark("inference")
+        if isinstance(model, MyCNN):
+            transform = transforms.Compose([
+                transforms.Resize(resize_shape),
+                transforms.ToTensor()
+            ])
+            input_tensor = transform(data).unsqueeze(0)
+            with torch.no_grad():
+                output = model(input_tensor)
+                prediction = torch.argmax(output, 1).item()
+        else:
+            prediction, _ = model.predict(data)
 
         result = "악성" if prediction == 1 else "정상"
         accuracy = ACCURACY_MAP.get(ext, None)
+        timer.mark("inference")
 
     except Exception as e:
         result = f"에러 발생: {str(e)}"
         accuracy = None
 
-    finally:
-        try:
-            os.remove(file_path)
-        except Exception as del_err:
-            print(f"파일 삭제 실패: {del_err}")
+    # finally:
+    #     try:
+    #         os.remove(file_path)
+    #     except Exception as del_err:
+    #         print(f"파일 삭제 실패: {del_err}")
 
     return {
         "result": result,
@@ -94,42 +106,43 @@ def predict(file_path: str, file_ext: str):
         "log": timer.get_log()
     }
 
-## Pie Chart : 파일 악성/정상 몇 % 비율인지
+
+# ✅ 확률 반환 함수 (CNN & RandomForest 모두 대응)
 def predict_probabilities(file_path: str, file_ext: str):
-    ext = file_ext.lower().strip(".")  # ".exe" → "exe"
+    ext = file_ext.lower().strip(".")
     model = load_model_by_extension(ext)
 
-    # print(f"[DEBUG] ext: {ext}")
-    # print(f"[DEBUG] converter_map: {CONVERTER_MAP}")
-
     try:
-        if ext in CONVERTER_MAP:
-            convert_func, resize_shape = CONVERTER_MAP[ext]
-            image = convert_func(file_path) if convert_func else Image.open(file_path).convert("L")
-        else:
+        if ext not in CONVERTER_MAP:
             raise ValueError(f"{ext} 확장자는 아직 지원되지 않습니다.")
+        convert_func, resize_shape = CONVERTER_MAP[ext]
+        data = convert_func(file_path)
 
-        transform = transforms.Compose([
-            transforms.Resize(resize_shape),
-            transforms.ToTensor()
-        ])
-        input_tensor = transform(image).unsqueeze(0)
-
-        with torch.no_grad():
-            output = model(input_tensor)
-            probabilities = torch.nn.functional.softmax(output, dim=1)[0]
-            normal_score = round(probabilities[0].item() * 100, 2)
-            malicious_score = round(probabilities[1].item() * 100, 2)
+        if isinstance(model, MyCNN):
+            transform = transforms.Compose([
+                transforms.Resize(resize_shape),
+                transforms.ToTensor()
+            ])
+            input_tensor = transform(data).unsqueeze(0)
+            with torch.no_grad():
+                output = model(input_tensor)
+                probs = torch.nn.functional.softmax(output, dim=1)[0]
+                normal_score = round(probs[0].item() * 100, 2)
+                malicious_score = round(probs[1].item() * 100, 2)
+        else:
+            _, proba = model.predict(data)
+            normal_score = round(proba[0] * 100, 2)
+            malicious_score = round(proba[1] * 100, 2)
 
     except Exception as e:
         normal_score, malicious_score = 0.0, 0.0
         print(f"에러 발생: {str(e)}")
 
-    finally:
-        try:
-            os.remove(file_path)
-        except Exception as del_err:
-            print(f"파일 삭제 실패: {del_err}")
+    # finally:
+    #     try:
+    #         os.remove(file_path)
+    #     except Exception as del_err:
+    #         print(f"파일 삭제 실패: {del_err}")
 
     return {
         "normal": normal_score,
@@ -137,6 +150,7 @@ def predict_probabilities(file_path: str, file_ext: str):
     }
 
 
+# ✅ 전체 보고서 출력용 데이터
 def predict_full_report_data(file_path: str, file_ext: str):
     ext = file_ext.lower().strip(".")
     timer = InferenceTimer()
@@ -144,41 +158,43 @@ def predict_full_report_data(file_path: str, file_ext: str):
     timer.mark("model_load")
 
     try:
-        if ext in CONVERTER_MAP:
-            convert_func, resize_shape = CONVERTER_MAP[ext]
-            image = convert_func(file_path) if convert_func else Image.open(file_path).convert("L")
-        else:
+        if ext not in CONVERTER_MAP:
             raise ValueError(f"{ext} 확장자는 아직 지원되지 않습니다.")
+        convert_func, resize_shape = CONVERTER_MAP[ext]
+        data = convert_func(file_path)
         timer.mark("preprocess")
 
-        transform = transforms.Compose([
-            transforms.Resize(resize_shape),
-            transforms.ToTensor()
-        ])
-        input_tensor = transform(image).unsqueeze(0)
-
-        with torch.no_grad():
-            output = model(input_tensor)
-            probabilities = torch.nn.functional.softmax(output, dim=1)[0]
-            prediction = torch.argmax(output, 1).item()
-
-        timer.mark("inference")
+        if isinstance(model, MyCNN):
+            transform = transforms.Compose([
+                transforms.Resize(resize_shape),
+                transforms.ToTensor()
+            ])
+            input_tensor = transform(data).unsqueeze(0)
+            with torch.no_grad():
+                output = model(input_tensor)
+                probs = torch.nn.functional.softmax(output, dim=1)[0]
+                prediction = torch.argmax(output, 1).item()
+                normal_score = round(probs[0].item() * 100, 2)
+                malicious_score = round(probs[1].item() * 100, 2)
+        else:
+            prediction, proba = model.predict(data)
+            normal_score = round(proba[0] * 100, 2)
+            malicious_score = round(proba[1] * 100, 2)
 
         result = "악성" if prediction == 1 else "정상"
         accuracy = ACCURACY_MAP.get(ext, None)
-        normal_score = round(probabilities[0].item() * 100, 2)
-        malicious_score = round(probabilities[1].item() * 100, 2)
+        timer.mark("inference")
 
     except Exception as e:
         result = f"에러 발생: {str(e)}"
         accuracy = None
         normal_score, malicious_score = 0.0, 0.0
 
-    finally:
-        try:
-            os.remove(file_path)
-        except Exception as del_err:
-            print(f"파일 삭제 실패: {del_err}")
+    # finally:
+    #     try:
+    #         os.remove(file_path)
+    #     except Exception as del_err:
+    #         print(f"파일 삭제 실패: {del_err}")
 
     return (
         {

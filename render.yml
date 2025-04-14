@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: web-backend-test
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    envVars:
-      - key: PORT
-        value: 8000
