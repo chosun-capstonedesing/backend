@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-dotenv
+psycopg2-binary  # 혹시 만약 데베 쓰면?
+passlib[bcrypt]
+pytest
+python-multipart
+fpdf
+pillow
+matplotlib
+torch
+torchvision
+boto3
+joblib  
+pandas
