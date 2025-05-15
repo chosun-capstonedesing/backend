@@ -129,7 +129,6 @@ def create_combined_model_performance_chart(perf):
         ax2.text(i, 102, f"{v:.2f}%", ha='center', fontsize=9)
 
     chart_path = "combined_performance_chart.png"
-    #plt.tight_layout()
     plt.subplots_adjust(bottom=0.2) # 하단 여백 확보 하기 위에 위 코드 주석 처리
     plt.savefig(chart_path)
     plt.close()
@@ -427,7 +426,7 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None, c
     try:
         gpt_advice = ask_gpt_for_recommendations(summary_text)
         pdf.multi_cell(0, 8, gpt_advice)
-        # 생성형 AI 안내 문구 삽입
+        # 👇 생성형 AI 안내 문구 삽입
         pdf.set_font("Noto", "", 9)
         pdf.set_text_color(120)
         pdf.ln(4)
@@ -453,7 +452,7 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None, c
     output_dir = "./temp_uploads/output"
     os.makedirs(output_dir, exist_ok=True)
 
-    output_filename = custom_filename if custom_filename else f"{file_name}_report.pdf"  
+    output_filename = custom_filename if custom_filename else f"{file_name}_report.pdf" 
     output_path = os.path.join(output_dir, output_filename) 
 
     pdf.output(output_path)

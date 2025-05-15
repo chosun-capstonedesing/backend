@@ -195,7 +195,9 @@ def create_log_gantt_chart(model_load, preprocess, inference):
 
 
 
-def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
+#def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
+def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None, custom_filename: str = None):
+
     model_type = result.get("model_info", {}).get("type") or model_name or "Unknown"
 
     """
@@ -240,13 +242,11 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
     file_name = os.path.basename(file.filename).replace("/", "_").replace("\\", "_")
     extension = os.path.splitext(file_name)[1]
     file_size = f"{len(contents) / 1024 / 1024:.2f} MB"
-    #file_hash = hashlib.sha256(contents).hexdigest()
 
     confidence = result["confidence"]
     test_acc = result["accuracy"]
     detection_result = result["result"]
 
-    #now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     now = datetime.now(pytz.timezone("Asia/Seoul")).strftime("%Y/%m/%d %H:%M:%S")
     malicious_percent = round(confidence * 100, 1)
     chart_path = create_pie_chart(malicious_percent)
@@ -255,13 +255,9 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
     pdf.alias_nb_pages() # 하단 페이지 개수
     pdf.add_page()
 
-
     font_dir = os.path.join(os.path.dirname(__file__), "../assets/fonts")
     pdf.add_font("Noto", "", os.path.join(font_dir, "NotoSansKR-Regular.ttf"), uni=True)
     pdf.add_font("Noto", "B", os.path.join(font_dir, "NotoSansKR-Bold.ttf"), uni=True)
-
-    # pdf.add_font("Noto", "", os.path.join(font_dir, "NotoSansKR-Regular.ttf"))
-    # pdf.add_font("Noto", "B", os.path.join(font_dir, "NotoSansKR-Bold.ttf"))
 
     logo_path = os.path.join(os.path.dirname(__file__), "../assets/images/report_logo.png")
     pdf.image(logo_path, x=10, y=10, w=45)
@@ -421,8 +417,6 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
         pdf.set_text_color(120)
         pdf.ln(4)
         pdf.cell(0, 8, "※ 위 내용은 OpenAI GPT-4o 생성형 AI 모델의 자동 응답 결과입니다.", align="R")
-        #pdf.cell(0, 8, "※ 위 내용은 생성형 AI의 자동 분석 결과입니다.", align="R")
-        #pdf.cell(0, 8, "※ 이 총평은 LLM 기반 자동 대응 결과입니다. 판단 시 참고용으로 활용하세요.", align="R")
         pdf.set_text_color(0)
     except Exception as e:
         print("[GPT 오류] 권장 조치 생성 실패:", e)
@@ -445,7 +439,8 @@ def generate_final_pdf_report(file: UploadFile, result: dict, model_name=None):
     output_dir = "./temp_uploads/output"
     os.makedirs(output_dir, exist_ok=True)
 
-    output_path = os.path.join(output_dir, f"{file_name}_report.pdf") 
+    output_filename = custom_filename if custom_filename else f"{file_name}_report.pdf"  
+    output_path = os.path.join(output_dir, output_filename) 
     pdf.output(output_path)  
 
     if os.path.exists(chart_path):

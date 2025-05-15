@@ -3,7 +3,7 @@ uvicorn
 sqlalchemy
 pydantic
 python-dotenv
-psycopg2-binary  # 혹시 만약 데베 쓰면?
+psycopg2-binary  
 passlib[bcrypt]
 pytest
 python-multipart
@@ -15,3 +15,12 @@ torchvision
 boto3
 joblib  
 pandas
+openai
+alembic
+fastapi-utils
+typing-inspect
+passlib[bcrypt]
+python-jose
+pydantic[email]
+redis
+scikit-learn

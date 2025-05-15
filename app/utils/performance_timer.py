@@ -7,7 +7,6 @@ class InferenceTimer:
     def __init__(self):
         self.log = {}
         self._start = time.time()
-        #self.log["start_time"] = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         self.log["start_time"] = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y/%m/%d %H:%M:%S")
 
 

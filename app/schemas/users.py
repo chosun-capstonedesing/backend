@@ -1,15 +1,21 @@
-# # 혹시 몰라 만들어둔 데베 -> 사용 안할 시 삭제 가능
-# from pydantic import BaseModel, EmailStr
+### app/schemas/users.py
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from uuid import UUID
+from datetime import datetime
 
-# class UserBase(BaseModel):
-#     username: str
-#     email: EmailStr
+class UserCreate(BaseModel):
+    username: str           
+    password: str
 
-# class UserCreate(UserBase):
-#     password: str
+class UserLogin(BaseModel):
+    username: str           
+    password: str
 
-# class User(UserBase):
-#     id: int
+class UserOut(BaseModel):
+    id: UUID
+    username: Optional[str]
+    created_at: datetime
 
-#     class Config:
-#         orm_mode = True
+    class Config:
+        from_attributes = True

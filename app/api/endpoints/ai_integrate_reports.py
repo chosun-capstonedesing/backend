@@ -31,11 +31,8 @@ async def generate_report(file: UploadFile = File(...)):
     print(f" generate_pdf_report_by_extension → 절대 경로: {save_path}")
     print(f" 파일 존재 확인: {os.path.exists(save_path)}")
 
-    ## postmand에서 파일 보게 하는거
-    # pdf_path = generate_pdf_report_by_extension(save_path, ext, result_data, prob_data)
-    # return {"report_path": pdf_path}
     file_path = save_path
     pdf_path = generate_pdf_report_by_extension(file_path, ext, result_data, prob_data)
-  # 실제 파일 저장 경로
+    # 실제 파일 저장 경로
     static_url = f"/static/{os.path.basename(pdf_path)}"
     return {"download_url": static_url}

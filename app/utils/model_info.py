@@ -1,4 +1,4 @@
-# app/utils/model_info.py — 모델 정보 정의 및 추출 함수 모음
+# app/utils/model_info.py —> 모델 정보 정의 및 추출 함수 모음
 import os
 import torch
 
@@ -21,6 +21,16 @@ MODEL_INFO_MAP = {
         "input": "Grayscale, 256x256",
         "train_size": "19,000"
     },
+    "xlsx": {
+        "type": "CNN",
+        "input": "Grayscale, 256x256",
+        "train_size": "19,000"
+    },
+    "docx": {
+        "type": "CNN",
+        "input": "Grayscale, 256x256",
+        "train_size": "19,000"
+    }
    
 }
 
@@ -41,53 +51,34 @@ MODEL_PERFORMANCE_SCORE = {
         "Benign": 93.22,
         "Malware": 94.62,
         "Accuracy": 94.1
+    },
+        "hwp": {
+        "F1-Score": 94.00,
+        "Precision": 95.00,
+        "Recall": 94.00,
+        "Benign": 80.00,
+        "Malware": 100.00,
+        "Accuracy": 94.0
+    },
+        "xlsx": {
+        "F1-Score": 75.00,
+        "Precision": 76.00,
+        "Recall": 76.00,
+        "Benign": 89.00,
+        "Malware": 55.00,
+        "Accuracy": 76.00
+    },
+        "docx": {
+        "F1-Score": 79.00,
+        "Precision": 79.00,
+        "Recall": 79.00,
+        "Benign": 82.00,
+        "Malware": 75.00,
+        "Accuracy":79.00
     }
 
 }
 
-# 모델 정보 자동 추출 함수
-# def extract_model_info(extension: str):
-#     ext = extension.lower().strip(".")
-#     info = MODEL_INFO_MAP.get(ext)
-
-#     if not info:
-#         # 예외 확장자용 기본값
-#         return {
-#             "type": "Unknown",
-#             "input": "(예: Grayscale, 256x256)",
-#             "train_size": "(예: 30,000)"
-#         }
-
-#     model_path = os.path.join(os.path.dirname(__file__), info.get("path", ""))
-
-#     # 모델 파일이 존재하지 않으면 그대로 info 반환
-#     if not os.path.exists(model_path):
-#         return {
-#             "type": info["type"],
-#             "input": info["input"],
-#             "train_size": info["train_size"]
-#         }
-
-#     try:
-#         model_path = f"./app/assets/{extension}.pth"
-#         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
-#         num_classes = checkpoint.get("num_classes")
-
-#         train_size = f"{num_classes * 15000:,}" if isinstance(num_classes, int) else info["train_size"]
-
-#         return {
-#             "type": info["type"],
-#             "input": info["input"],
-#             "train_size": train_size
-#         }
-
-#     except Exception as e:
-#         print(f"[extract_model_info] 모델 정보 추출 실패: {e}")
-#         return {
-#             "type": info["type"],
-#             "input": info["input"],
-#             "train_size": info["train_size"]
-#         }
 
 def extract_model_info(extension):
     ext = extension.lower().strip(".")
@@ -111,7 +102,6 @@ def extract_model_info(extension):
         }
 
     try:
-        # weights_only=False 추가!
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
 
         num_classes = checkpoint.get("num_classes")

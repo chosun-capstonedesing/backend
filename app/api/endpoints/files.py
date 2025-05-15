@@ -28,16 +28,6 @@ async def predict_file(file: UploadFile = File(...)):
     #save_path = f"./temp_uploads/{file.filename}"
     os.makedirs(INPUT_DIR, exist_ok=True)
 
-    # with open(save_path, "wb") as f:
-    #     contents = await file.read()
-    #     f.write(contents)
-    #     file_hash = hashlib.sha256(contents).hexdigest()
-
-
-    # # 파일 크기 계산 (바이트 → MB)
-    # file_size_mb = len(contents) / 1024 / 1024
-    # file_size_str = f"{file_size_mb:.2f} MB"
-
     try:
         contents = await file.read()
         with open(save_path, "wb") as f:
